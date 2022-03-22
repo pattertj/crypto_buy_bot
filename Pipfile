@@ -1,0 +1,19 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+ccxt = "*"
+python-dotenv = "*"
+
+[dev-packages]
+bandit = "*"
+black = "==21.12b0"
+isort = "*"
+flake8 = "*"
+mypy = "*"
+pre-commit = "*"
+
+[requires]
+python_version = "3.10"
