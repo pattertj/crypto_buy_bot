@@ -32,12 +32,16 @@ class Bot:
         # Check the class
         exchange_class = self.get_exchange_class(exchange_id)
 
+        api_key = self.get_or_ask_for("API_KEY")
+        api_secret = self.get_or_ask_for("API_SECRET")
+        api_password = self.get_or_ask_for("API_PASSWORD")
+
         # Build the exchange
         self.exchange = exchange_class(
             {
-                "apiKey": getenv("API_KEY"),
-                "secret": getenv("API_SECRET"),
-                "password": getenv("API_PASSWORD"),
+                "apiKey": api_key,
+                "secret": api_secret,
+                "password": api_password,
                 "verbose": False,
             }
         )
@@ -170,3 +174,18 @@ class Bot:
             self.build_shopping_list()
 
         return
+
+    @staticmethod
+    def get_or_ask_for(key: str) -> str:
+        # Check our .env file first
+        value = getenv(key)
+
+        # If we have a value, return it.
+        if value is not None:
+            return value
+
+        # If not, prompt for it.
+        print(
+            f"Please enter your {key}. It will not be stored locally, only in memory."
+        )
+        return input()
