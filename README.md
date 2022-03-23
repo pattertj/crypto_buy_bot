@@ -1,6 +1,6 @@
 # ```crypto_buy_bot```: A simple script for buying crypto
 
-```crypto_buy_bot``` was a script I threw together to help simplify my monthly crypto DCA deposits. It's intended to be run from the command line, howevr, the bot does also support .env for storing your exchange credentials.
+```crypto_buy_bot``` is a script I threw together to help simplify my monthly crypto DCA deposits. I wanted to buy several coins each month and doing it all on mobile was time consuming, so I wrote this script. It's intended to be run from the command line, however, the bot does currently require .env for storing your exchange credentials.
 
 To get started using ```crypto_buy_bot```, run the following in your terminal:
 
