@@ -1,63 +1,77 @@
-import attr
 import os
 import sys
-from dotenv import load_dotenv
 from os import getenv
+
+import attr
 from ccxt import Exchange
+from dotenv import load_dotenv
 
 load_dotenv()
 
 root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.append(f'{root}/python')
+sys.path.append(f"{root}/python")
 
 import ccxt  # noqa: E402
 
+
 @attr.s(auto_attribs=True)
-class Bot():
-    shopping_list: dict = attr.ib(validator=attr.validators.instance_of(dict), init=False)
-    exchange: super(Exchange) = attr.ib(validator=attr.validators.instance_of(super(Exchange)), init=False)
-        
+class Bot:
+    shopping_list: dict = attr.ib(
+        validator=attr.validators.instance_of(dict), init=False, default={}
+    )
+    exchange: Exchange = attr.ib(
+        validator=attr.validators.instance_of(Exchange), init=False
+    )
+
     def __attrs_post_init__(self):
+        """Upon creation, setup our exchange."""
+
+        # Check our .env file first
         exchange_id = getenv("EXCHANGE_ID")
 
-        if exchange_id is None:
-            exchange_class = self.prompt_for_exchanges()
-        else:
-            try:
-                exchange_class = getattr(ccxt, exchange_id)
-            except:
-                print("Invalid exchange.")
-                exchange_class = self.prompt_for_exchanges()
+        # Check the class
+        exchange_class = self.get_exchange_class(exchange_id)
 
-        self.exchange = exchange_class({
-            'apiKey': getenv("API_KEY"),
-            'secret': getenv("API_SECRET"),
-            'password': getenv("API_PASSWORD"),
-            'verbose': False,
-        })
-    
-    def checkout(self):
+        # Build the exchange
+        self.exchange = exchange_class(
+            {
+                "apiKey": getenv("API_KEY"),
+                "secret": getenv("API_SECRET"),
+                "password": getenv("API_PASSWORD"),
+                "verbose": False,
+            }
+        )
+
+    def checkout(self) -> None:
+        """Main entry into the logic of the bot."""
+
+        # Build our shopping list if needed.
+        if self.shopping_list is None or self.shopping_list == {}:
+            self.build_shopping_list()
+
         # Get Balances
-        if not self.exchange.has['fetchBalance']:
+        if not self.exchange.has["fetchBalance"]:
             print("Sorry, this exchange doesn't support fetchBalance.")
             return
-        
+
         balances = self.exchange.fetch_balance()
-        usd_balance = round(balances['USD']['total'], 2)
+        usd_balance = round(balances["USD"]["total"], 2)
 
         # Get total purchase amount
         total_buy = sum(self.shopping_list.values())
 
-        print("You will purchase:")
+        print("You are trying to purchase:")
         for coin, amount in self.shopping_list.items():
-            print(f"- ${amount} of {coin}." )
+            print(f"- ${amount} of {coin}.")
 
         print(f"Your available USD balance is: ${usd_balance}")
         print(f"Your total purchase amount is: ${total_buy}")
 
         # Check if we have enough to pay.
         if usd_balance < total_buy:
-            print("You have insufficient funds for this purchase. Please remove some items from your cart.")
+            print(
+                "You have insufficient funds for this purchase. Please remove some items from your cart."
+            )
             return
 
         print("Are you ready to checkout? [y/n]")
@@ -73,7 +87,7 @@ class Bot():
 
         print("Payment Complete. Please remember to take your items. Have a nice day!")
 
-    def process_payment(self):
+    def process_payment(self) -> None:
         coin: str
         amount: float
         for coin, amount in self.shopping_list.items():
@@ -81,39 +95,78 @@ class Bot():
             symbol = f"{coin}/USD"
 
             # Get Coin Details
-            if not self.exchange.has['fetchTickers']:
+            if not self.exchange.has["fetchTickers"]:
                 print("Sorry, this exchange doesn't support fetchTickers.")
                 return
-            
+
             ticker = self.exchange.fetch_tickers([symbol])
 
             print(f"{coin} Market Price: ${ticker[symbol]['last']}")
 
             # Calculate amount of coin to buy
-            amount_in_coin = amount / ticker[symbol]['last']
+            amount_in_coin = amount / ticker[symbol]["last"]
 
-            print(f"${amount} of {coin} is {amount_in_coin}{coin}.")  
+            print(f"${amount} of {coin} is {amount_in_coin}{coin}.")
+
+            if not self.exchange.has["createOrder"]:
+                print("Sorry, this exchange doesn't support createOrder.")
+                return
 
             # Place market order
-            self.exchange.create_market_buy_order(symbol=symbol, amount=amount_in_coin)
+            try:
+                self.exchange.create_market_buy_order(
+                    symbol=symbol, amount=amount_in_coin
+                )
+            except Exception:
+                print(
+                    "An error occurred placing your market order. Please check your account."
+                )
+                return
 
             print(f"Market buy order for {coin}, completed.")
-            
-    def prompt_for_exchanges(self) -> Exchange:
+
+    def get_exchange_class(self, exchange_id):
+        if exchange_id is None:
+            exchange_class = self.prompt_for_exchanges()
+        else:
+            try:
+                exchange_class = getattr(ccxt, exchange_id)
+            except Exception:
+                print("Invalid exchange.")
+                exchange_class = self.prompt_for_exchanges()
+        return exchange_class
+
+    def prompt_for_exchanges(self):
         # Get the exchange input
         print("Please Select an Exchange:")
-        
+
         for ex in ccxt.exchanges:
             print(ex)
-        
+
         exchange_name = input()
-        
+
         # Try to parse the input
         try:
             exchange_class = getattr(ccxt, exchange_name)
-        except:
+        except Exception:
             print("Invalid exchange.")
             return self.prompt_for_exchanges()
-        
+
         # Return if successful
         return exchange_class
+
+    def build_shopping_list(self) -> None:
+        print("What coin do you want to buy?")
+        coin = str(input())
+        print("How much in USD do you want to buy?")
+        amount = float(input())
+
+        self.shopping_list[coin] = amount
+
+        print("Coin added, do you want to buy another? [y/n]")
+        go_on = input()
+
+        if go_on in ["y", "Y"]:
+            self.build_shopping_list()
+
+        return
